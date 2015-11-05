@@ -9,6 +9,7 @@
         name: "old_monitor"
     },
     algorithm: !obj:pylearn2.training_algorithms.sgd.SGD {
+        batch_size: 128,
         train_iteration_mode: 'batchwise_shuffled_sequential',
         learning_rate: 0.008600,
         learning_rule: !obj:pylearn2.training_algorithms.learning_rule.Momentum {

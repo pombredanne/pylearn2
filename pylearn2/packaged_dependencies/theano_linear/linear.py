@@ -1,15 +1,30 @@
 """
-XXX
+.. todo::
+
+    WRITEME
 """
 import numpy
 import theano
 from theano import tensor
+from theano.compat.six.moves import reduce
+
+from pylearn2.utils import py_integer_types
 
 prod = numpy.prod
 
 def dot(x, y):
-    """Return the linear transformation of `y` by `x` or `x` by `y` when one
+    """
+    Return the linear transformation of `y` by `x` or `x` by `y` when one
     or both of `x` and `y` is a LinearTransform instance
+
+    Parameters
+    ----------
+    x : WRITEME
+    y : WRITEME
+
+    Returns
+    -------
+    WRITEME
     """
     if isinstance(x, LinearTransform):
         return x.rmul(y)
@@ -20,7 +35,17 @@ def dot(x, y):
 
 
 def dot_shape_from_shape(x, y):
-    """Compute `dot(x, y).shape` from the shape of the non-LinearTransform
+    """
+    Compute `dot(x, y).shape` from the shape of the non-LinearTransform
+
+    Parameters
+    ----------
+    x : WRITEME
+    y : WRITEME
+
+    Returns
+    -------
+    WRITEME
     """
     if isinstance(x, LinearTransform):
         if type(y) != tuple:
@@ -35,8 +60,18 @@ def dot_shape_from_shape(x, y):
 
 
 def dot_shape(x, y):
-    """Return the linear transformation of `y` by `x` or `x` by `y` when one
+    """
+    Return the linear transformation of `y` by `x` or `x` by `y` when one
     or both of `x` and `y` is a LinearTransform instance
+
+    Parameters
+    ----------
+    x : WRITEME
+    y : WRITEME
+
+    Returns
+    -------
+    WRITEME
     """
     if isinstance(x, LinearTransform):
         return dot_shape_from_shape(x, tuple(y.shape))
@@ -48,37 +83,68 @@ def dot_shape(x, y):
 
 class LinearTransform(object):
     """
+    .. todo::
 
-    Attributes:
-    _params: a list of theano shared variables
-        that parametrize the linear transformation
+        WRITEME
 
+    Parameters
+    ----------
+    params : list
+        List of theano shared variables that parametrize the linear
+        transformation
     """
     def __init__(self, params):
         self.set_params(params)
 
     def set_params(self, params):
+        """
+        .. todo::
+
+            WRITEME
+        """
         self._params = list(params)
 
     def params(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return list(self._params)
 
     def __str__(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.__class__.__name__ +'{}'
 
     # N.B. Don't implement __mul__ and __lmul__ because these mean
     # element-wise multiplication in numpy land.
 
     def __add__(self, other):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return Sum([self, other])
 
     def __radd__(self, other):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return Sum([other, self])
 
     # OVER-RIDE THIS (or rmul)
     def lmul(self, x):
-        """mul(x, A)
+        """
+        .. todo::
 
+            WRITEME
         """
         # this is a circular definition with rmul so that they are both
         # implemented as soon as one of them is overridden by a base class.
@@ -89,15 +155,20 @@ class LinearTransform(object):
             AT_xT = self.rmul_T(self.transpose_left(x, False))
             rval = self.transpose_right(AT_xT, True)
             return rval
-        except RuntimeError, e:
+        except RuntimeError as e:
             if 'ecursion' in str(e):
                 raise TypeError('either lmul or rmul_T must be implemented')
             raise
-        except TypeError, e:
+        except TypeError as e:
             if 'either lmul' in str(e):
                 raise TypeError('either lmul or rmul_T must be implemented')
 
     def lmul_T(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         # this is a circular definition with rmul so that they are both
         # implemented as soon as one of them is overridden by a base class.
 
@@ -109,7 +180,10 @@ class LinearTransform(object):
 
     # OVER-RIDE THIS (or lmul)
     def rmul(self, x):
-        """mul(A, x) or mul(A.T, x)
+        """
+        .. todo::
+
+            WRITEME
         """
         # this is a circular definition with rmul so that they are both
         # implemented as soon as one of them is overridden by a base class.
@@ -120,15 +194,20 @@ class LinearTransform(object):
             xT_AT = self.lmul_T(self.transpose_right(x, False))
             rval = self.transpose_left(xT_AT, False)
             return rval
-        except RuntimeError, e:
+        except RuntimeError as e:
             if 'ecursion' in str(e):
                 raise TypeError('either rmul or lmul_T must be implemented')
             raise
-        except TypeError, e:
+        except TypeError as e:
             if 'either lmul' in str(e):
                 raise TypeError('either rmul or lmul_T must be implemented')
 
     def rmul_T(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         # this is a circular definition with rmul so that they are both
         # implemented as soon as one of them is overridden by a base class.
 
@@ -140,7 +219,9 @@ class LinearTransform(object):
 
     def transpose_left(self, x, T):
         """
-        XXX
+        .. todo::
+
+            WRITEME
         """
         # supposing self.row_shape is (R1,)...
         cshp = self.col_shape()
@@ -150,12 +231,14 @@ class LinearTransform(object):
         else:
             # R1 R2 C1 C2 C3 -> C1 C2 C3 R1 R2
             ss = x.ndim - len(cshp)
-        pattern = range(ss, x.ndim) + range(ss)
+        pattern = list(range(ss, x.ndim)) + list(range(ss))
         return x.transpose(pattern)
 
     def transpose_right(self, x, T):
         """
-        XXX
+        .. todo::
+
+            WRITEME
         """
         # supposing self.row_shape is (R1,)...
         rshp = self.row_shape()
@@ -165,12 +248,14 @@ class LinearTransform(object):
         else:
             # R1 C1 C2 -> C1 C2 R1
             ss = x.ndim - len(rshp)
-        pattern = range(ss, x.ndim) + range(ss)
+        pattern = list(range(ss, x.ndim)) + list(range(ss))
         return x.transpose(pattern)
 
     def split_left_shape(self, xshp, T):
         """
-        XXX
+        .. todo::
+
+            WRITEME
         """
         if type(xshp) != tuple:
             raise TypeError('need tuple', xshp)
@@ -197,7 +282,9 @@ class LinearTransform(object):
 
     def split_right_shape(self, xshp, T):
         """
-        XXX
+        .. todo::
+
+            WRITEME
         """
         if type(xshp) != tuple:
             raise TypeError('need tuple', xshp)
@@ -224,18 +311,27 @@ class LinearTransform(object):
 
     def transpose_left_shape(self, xshp, T):
         """
+        .. todo::
+
+            WRITEME
         """
         RR, CC = self.split_left_shape(xshp, T)
         return CC + RR
 
     def transpose_right_shape(self, xshp, T):
         """
+        .. todo::
+
+            WRITEME
         """
         RR, CC = self.split_right_shape(xshp, T)
         return CC + RR
 
     def is_valid_left_shape(self, xshp, T):
         """
+        .. todo::
+
+            WRITEME
         """
         try:
             self.split_left_shape(xshp, T)
@@ -245,6 +341,9 @@ class LinearTransform(object):
 
     def is_valid_right_shape(self, xshp, T):
         """
+        .. todo::
+
+            WRITEME
         """
         try:
             self.split_right_shape(xshp, T)
@@ -254,13 +353,28 @@ class LinearTransform(object):
 
     # OVER-RIDE THIS
     def row_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         raise NotImplementedError('override me')
 
     # OVER-RIDE THIS
     def col_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         raise NotImplementedError('override me')
 
     def transpose(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return TransposeTransform(self)
 
     T = property(lambda self: self.transpose())
@@ -271,68 +385,167 @@ class LinearTransform(object):
 
 
 class TransposeTransform(LinearTransform):
+    """
+    .. todo::
+
+        WRITEME
+
+    Parameters
+    ----------
+    base : WRITEMe
+    """
     def __init__(self, base):
         super(TransposeTransform, self).__init__([])
         self.base = base
 
     def transpose(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base
 
     def params(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.params()
 
     def lmul(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.lmul_T(x)
 
     def lmul_T(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.lmul(x)
 
     def rmul(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.rmul_T(x)
 
     def rmul_T(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.rmul(x)
 
     def transpose_left(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.transpose_right(x, not T)
 
     def transpose_right(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.transpose_left(x, not T)
 
     def transpose_left_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.transpose_right_shape(x, not T)
 
     def transpose_right_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.transpose_left_shape(x, not T)
 
     def split_left_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.split_right_shape(x, not T)
 
     def split_right_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.split_left_shape(x, not T)
 
     def is_valid_left_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.is_valid_right_shape(x, not T)
 
     def is_valid_right_shape(self, x, T):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.is_valid_left_shape(x, not T)
 
     def row_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.col_shape()
 
     def col_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.row_shape()
 
     def print_status(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self.base.print_status()
 
     def tile_columns(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         # yes, it would be nice to do rows, but since this is a visualization
         # and there *is* no tile_rows, we fall back on this.
         return self.base.tile_columns()
 
-
-if 0: # needs to be brought up to date with LinearTransform method names
+use_concat_class = 0
+if use_concat_class: # needs to be brought up to date with LinearTransform method names
     class Concat(LinearTransform):
         """
         Form a linear map of the form [A B ... Z].
@@ -342,16 +555,22 @@ if 0: # needs to be brought up to date with LinearTransform method names
         The col_shape defaults to being the concatenation of flattened output from
         each of A,B,...Z, but a col_shape tuple specified via the constructor will
         reshape that vector.
+
+        Parameters
+        ----------
+        Wlist : WRITEME
+        col_shape : WRITEME
         """
         def __init__(self, Wlist, col_shape=None):
             super(Concat, self).__init__([])
             self._Wlist = list(Wlist)
-            if not isinstance(col_shape, (int, long, numpy.integer, tuple, type(None))):
+            if not (isinstance(col_shape, py_integer_types)
+                    or isinstance(col_shape, (tuple, type(None)))):
                 raise TypeError('col_shape must be int or int tuple')
             self._col_sizes = [prod(w.col_shape()) for w in Wlist]
             if col_shape is None:
                 self.__col_shape = sum(self._col_sizes),
-            elif isinstance(col_shape, (int, long, numpy.integer)):
+            elif isinstance(col_shape, py_integer_types):
                 self.__col_shape = col_shape,
             else:
                 self.__col_shape = tuple(col_shape)
@@ -418,8 +637,8 @@ if 0: # needs to be brought up to date with LinearTransform method names
             for W in self._Wlist:
                 W.print_status()
 
-
-if 0: # needs to be brought up to date with LinearTransform method names
+use_sum_class = 0
+if use_sum_class: # needs to be brought up to date with LinearTransform method names
     class Sum(LinearTransform):
         def __init__(self, terms):
             self.terms = terms
@@ -446,8 +665,8 @@ if 0: # needs to be brought up to date with LinearTransform method names
         def _tile_columns(self):
             raise NotImplementedError('TODO')
 
-
-if 0: # This is incomplete
+use_compose_class = 0
+if use_compose_class: # This is incomplete
     class Compose(LinearTransform):
         """ For linear transformations [A,B,C]
         this represents the linear transformation A(B(C(x))).

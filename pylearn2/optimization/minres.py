@@ -5,7 +5,7 @@ Note: this code is inspired from the following matlab source :
 
 import theano
 import theano.tensor as TT
-from theano.sandbox.scan import scan
+from theano import scan
 import numpy
 from pylearn2.utils import constantX
 from pylearn2.expr.basic import multiple_switch, symGivens2, \
@@ -38,65 +38,85 @@ def minres(compute_Av,
            Acondlim=constantX(1e16),
            profile=0):
     """
-     minres attempts to find the minimum-length and minimum-residual-norm
-     solution x to the system of linear equations A*x = b or
-     least squares problem min||Ax-b||.  The n-by-n coefficient matrix A
-     must be symmetric (but need not be positive definite or invertible).
-     The right-hand-side column vector b must have length n.
+    Attempts to find the minimum-length and minimum-residual-norm
+    solution :math:`x` to the system of linear equations :math:`A*x = b`
+    or least squares problem :math:`\\min||Ax-b||`. 
 
-     Parameters:
+    The n-by-n coefficient matrix A must be symmetric (but need not be
+    positive definite or invertible). The right-hand-side column vector
+    b must have length n.
 
-        compute_Av: callable returing the symbolic expression for
-            `Av` (the product of matrix A with some vector v).
-            `v` should be a list of tensors, whre the vector v means
-            the vector obtain by concatenating and flattening all tensors in
-            v
-        bs: list of Theano expressions. We are looking to compute
-            `A^-1\dot bs`.
-        rtol: Optional, real, specifies the tolerance of the method.
-            Default is 1e-6
-        maxit: Optional, positive integer, specifies the maximum number
-            of iterations. Default is 20
-        Ms: List of theano expression of same shape as `bs`. The
-            method uses these to precondition with diag(Ms)
-        shift: Optional, scalar, real or complex.  Default is 0.
-                   Effectively solve the system (A - shift I) * x = b.
-        maxxnorm   real positive, maximum bound on NORM(x). Default is 1e14.
-        Acondlim   real positive, maximum bound on COND(A). Default is 1e15.
-        show       boolean, 0 to suppress outputs, 1 to show iterations.
-                   Default is 0.
+    .. note:: This code is inspired from
+        http://www.stanford.edu/group/SOL/software/minres.html .
 
-     OUTPUTS:
-        x       list of Theano tensor representing the solution
-        flag    theano int scalar - convergence flag
-                0 beta1 = 0.  The exact solution is  x = 0.
-                1 A solution to (poss. singular) Ax = b found, given rtol.
-                2 Pseudoinverse solution for singular LS problem, given rtol.
-                3 A solution to (poss. singular) Ax = b found, given eps.
-                4 Pseudoinverse solution for singular LS problem, given eps.
-                5 x has converged to an eigenvector.
-                6 xnorm has exceeded maxxnorm.
-                7 Acond has exceeded Acondlim.
-                8 The iteration limit was reached.
-                9/10 It is a least squares problem but no converged
-                 solution yet.
-        iter    integer, iteration number at which x was computed:
-                0 <= iter <= maxit.
-        relres  real positive, the relative residual is defined as
-                     NORM(b-A*x)/(NORM(A) * NORM(x) + NORM(b)),
-                computed recurrently here.  If flag is 1 or 3,  relres <= TOL.
-        relAres real positive, the relative-NORM(Ar) := NORM(Ar) / NORM(A) ---
-                computed recurrently here. If flag is 2 or 4, relAres <= TOL.
-        Anorm   real positive, estimate of matrix 2-norm of A.
-        Acond   real positive, estimate of condition number of A with
-                respect to 2-norm.
-        xnorm   non-negative positive, recurrently computed NORM(x)
-        Axnorm  non-negative positive, recurrently computed NORM(A * x).
+    Parameters
+    ----------
+    compute_Av : callable
+        Callable returing the symbolic expression for
+        `Av` (the product of matrix A with some vector v).
+        `v` should be a list of tensors, where the vector v means
+        the vector obtain by concatenating and flattening all tensors in v
+    bs : list
+        List of Theano expressions. We are looking to compute `A^-1\dot bs`.
+    rtol : float, optional
+        Specifies the tolerance of the method.  Default is 1e-6.
+    maxit : int, positive, optional
+        Specifies the maximum number of iterations. Default is 20.
+    Ms : list
+        List of theano expression of same shape as `bs`. The method uses
+        these to precondition with diag(Ms)
+    shift : float, optional
+        Default is 0.  Effectively solve the system (A - shift I) * x = b.
+    maxxnorm : float, positive, optional
+        Maximum bound on NORM(x). Default is 1e14.
+    Acondlim : float, positive, optional
+        Maximum bound on COND(A). Default is 1e15.
+    show : bool
+        If True, show iterations, otherwise suppress outputs. Default is
+        False.
 
-     REFERENCES:
-        Sou-Cheng Choi's PhD Dissertation, Stanford University, 2006.
-             http://www.stanford.edu/group/SOL/software.html
+    Returns
+    -------
+    x : list
+        List of Theano tensor representing the solution
+    flag : tensor_like
+        Theano int scalar - convergence flag
 
+            0. beta1 = 0.  The exact solution is  x = 0.
+            1. A solution to (poss. singular) Ax = b found, given rtol.
+            2. Pseudoinverse solution for singular LS problem, given rtol.
+            3. A solution to (poss. singular) Ax = b found, given eps.
+            4. Pseudoinverse solution for singular LS problem, given eps.
+            5. x has converged to an eigenvector.
+            6. xnorm has exceeded maxxnorm.
+            7. Acond has exceeded Acondlim.
+            8. The iteration limit was reached.
+            9. 10. It is a least squares problem but no converged
+               solution yet.
+    iter : int
+        Iteration number at which x was computed: `0 <= iter <= maxit`.
+    relres : float
+        Real positive, the relative residual is defined as
+        NORM(b-A*x)/(NORM(A) * NORM(x) + NORM(b)),
+        computed recurrently here.  If flag is 1 or 3,  relres <= TOL.
+    relAres : float
+        Real positive, the relative-NORM(Ar) := NORM(Ar) / NORM(A)
+        computed recurrently here. If flag is 2 or 4, relAres <= TOL.
+    Anorm : float
+        Real positive, estimate of matrix 2-norm of A.
+    Acond : float
+        Real positive, estimate of condition number of A with respect to
+        2-norm.
+    xnorm : float
+        Non-negative positive, recurrently computed NORM(x)
+    Axnorm : float
+        Non-negative positive, recurrently computed NORM(A * x).
+
+    References
+    ----------
+    .. [1] Choi, Sou-Cheng. Iterative Methods for Singular Linear 
+           Equations and Least-Squares Problems, PhD Dissertation,
+           Stanford University, 2006.
     """
 
     if not isinstance(bs, (tuple, list)):
@@ -331,74 +351,71 @@ def minres(compute_Av,
 
     states = []
     # 0 niter
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 1 beta
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 2 betan
-    states.append(TT.unbroadcast(TT.shape_padleft(beta1), 0))
+    states.append(beta1)
     # 3 phi
-    states.append(TT.unbroadcast(TT.shape_padleft(beta1), 0))
+    states.append(beta1)
     # 4 Acond
-    states.append(constantX([1]))
+    states.append(constantX(1))
     # 5 cs
-    states.append(constantX([-1]))
+    states.append(constantX(-1))
     # 6 dbarn
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 7 eplnn
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 8 rnorm
-    states.append(TT.unbroadcast(TT.shape_padleft(beta1), 0))
+    states.append(beta1)
     # 9 sn
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 10 Tnorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 11 rnorml
-    states.append(TT.unbroadcast(TT.shape_padleft(beta1), 0))
+    states.append(beta1)
     # 12 xnorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 13 Dnorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 14 gamma
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 15 pnorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 16 gammal
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 17 Axnorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 18 relrnorm
-    states.append(constantX([1]))
+    states.append(constantX(1))
     # 19 relArnorml
-    states.append(constantX([1]))
+    states.append(constantX(1))
     # 20 Anorm
-    states.append(constantX([0]))
+    states.append(constantX(0))
     # 21 flag
-    states.append(constantX([0]))
-    xs = [TT.unbroadcast(TT.shape_padleft(TT.zeros_like(b)), 0) for b in bs]
-    ds = [TT.unbroadcast(TT.shape_padleft(TT.zeros_like(b)), 0) for b in bs]
-    dls = [TT.unbroadcast(TT.shape_padleft(TT.zeros_like(b)), 0) for b in bs]
-    r1s = [TT.unbroadcast(TT.shape_padleft(r1), 0) for r1 in r1s]
-    r2s = [TT.unbroadcast(TT.shape_padleft(r2), 0) for r2 in r2s]
-    r3s = [TT.unbroadcast(TT.shape_padleft(r3), 0) for r3 in r3s]
+    states.append(constantX(0))
+    xs = [TT.zeros_like(b) for b in bs]
+    ds = [TT.zeros_like(b) for b in bs]
+    dls = [TT.zeros_like(b) for b in bs]
 
     rvals, loc_updates = scan(
         loop,
-        states=states + xs + r1s + r2s + r3s + dls + ds,
+        outputs_info=(states + xs + r1s + r2s + r3s + dls + ds),
         n_steps=maxit + numpy.int32(1),
         name='minres',
         profile=profile,
         mode=theano.Mode(linker='cvm'))
     assert isinstance(loc_updates, dict) and 'Ordered' in str(type(loc_updates))
 
-    niters = TT.cast(rvals[0][0], 'int32')
-    flag = TT.cast(rvals[21][0], 'int32')
-    relres = rvals[18][0]
-    relAres = rvals[19][0]
-    Anorm = rvals[20][0]
-    Acond = rvals[4][0]
-    xnorm = rvals[12][0]
-    Axnorm = rvals[17][0]
-    sol = [x[0] for x in rvals[22: 22 + n_params]]
+    niters = TT.cast(rvals[0][-1], 'int32')
+    flag = TT.cast(rvals[21][-1], 'int32')
+    relres = rvals[18][-1]
+    relAres = rvals[19][-1]
+    Anorm = rvals[20][-1]
+    Acond = rvals[4][-1]
+    xnorm = rvals[12][-1]
+    Axnorm = rvals[17][-1]
+    sol = [x[-1] for x in rvals[22: 22 + n_params]]
     return (sol,
             flag,
             niters,
@@ -409,5 +426,3 @@ def minres(compute_Av,
             xnorm,
             Axnorm,
             loc_updates)
-
-

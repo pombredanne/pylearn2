@@ -1,3 +1,9 @@
+"""
+Utilities for working with data format specifications.
+
+See :ref:`data_specs` for a high level overview of the relevant concepts.
+"""
+from collections import Sized
 from pylearn2.space import CompositeSpace, NullSpace, Space
 from pylearn2.utils import safe_zip
 
@@ -10,14 +16,23 @@ class DataSpecsMapping(object):
     (space, sources) pair, where space can be a composite space (possibly
     of other composite spaces), and sources is a tuple of string identifiers
     or other sources. Both space and sources must have the same structure.
+
+    Parameters
+    ----------
+    data_specs : WRITEME
+    WRITEME
+
+    Attributes
+    ----------
+    specs_to_index : dict
+    Maps one elementary (not composite) data_specs pair to its
+    index in the flattened space.  Not sure if this one should
+    be a member, or passed as a parameter to _fill_mapping. It
+    might be us
     """
+    #might be useful to get the index of one data_specs later
+    #but if it is not, then we should remove it.
     def __init__(self, data_specs):
-        """Builds the internal mapping"""
-        # Maps one elementary (not composite) data_specs pair to its index in
-        # the flattened space
-        # Not sure if this one should be a member, or passed as a parameter to
-        # _fill_mapping. It might be useful to get the index of one data_specs
-        # later, but if it is not, then we should remove it.
         self.specs_to_index = {}
 
         # Size of the flattened space
@@ -25,10 +40,23 @@ class DataSpecsMapping(object):
 
         # Builds the mapping
         space, source = data_specs
+        assert isinstance(space, Space), 'Given space: ' + str(space) + \
+                                         ' was not a instance of Space.'
         self.spec_mapping = self._fill_mapping(space, source)
 
     def _fill_mapping(self, space, source):
-        """Builds a nested tuple of integers representing the mapping"""
+        """
+        Builds a nested tuple of integers representing the mapping
+
+        Parameters
+        ----------
+        space : WRITEME
+        source : WRITEME
+
+        Returns
+        -------
+        WRITEME
+        """
         if isinstance(space, NullSpace):
             # This Space does not contain any data, and should not
             # be mapped to anything
@@ -37,7 +65,7 @@ class DataSpecsMapping(object):
 
         elif not isinstance(space, CompositeSpace):
             # Space is a simple Space, source should be a simple source
-            if isinstance(source, tuple):
+            if isinstance(source, (tuple, list)):
                 source, = source
 
             # If (space, source) has not already been seen, insert it.
@@ -61,7 +89,19 @@ class DataSpecsMapping(object):
             return spec_mapping
 
     def _fill_flat(self, nested, mapping, rval):
-        """Auxiliary recursive function used by self.flatten"""
+        """
+        Auxiliary recursive function used by self.flatten
+
+        Parameters
+        ----------
+        nested : WRITEME
+        mapping : WRITEME
+        rval : WRITEME
+
+        Returns
+        -------
+        WRITEME
+        """
         if isinstance(nested, CompositeSpace):
             nested = tuple(nested.components)
 
@@ -79,7 +119,12 @@ class DataSpecsMapping(object):
         if isinstance(mapping, int):
             # "nested" should actually be a single element
             idx = mapping
-            if isinstance(nested, tuple):
+            if isinstance(nested, (tuple, list)):
+                if len(nested) != 1:
+                    raise ValueError("When mapping is an int, we expect "
+                            "nested to be a single element. But mapping is "
+                            + str(mapping) + " and nested is a tuple of "
+                            "length " + str(len(nested)))
                 nested, = nested
 
             if rval[idx] is None:
@@ -109,6 +154,15 @@ class DataSpecsMapping(object):
         non-composite Spaces if nested is a Space, empty tuple if all
         Spaces are NullSpaces, length-1 tuple if there is only one
         non-composite Space, etc.).
+
+        Parameters
+        ----------
+        nested : WRITEME
+        return_tuple : WRITEME
+
+        Returns
+        -------
+        WRITEME
         """
         # Initialize the flatten returned value with Nones
         rval = [None] * self.n_unique_specs
@@ -126,13 +180,24 @@ class DataSpecsMapping(object):
         # else, return something close to the type of nested
         if len(rval) == 1:
             return rval[0]
-        if isinstance(nested, tuple):
+        if isinstance(nested, (tuple, list)):
             return tuple(rval)
         elif isinstance(nested, Space):
             return CompositeSpace(rval)
 
     def _make_nested_tuple(self, flat, mapping):
-        """Auxiliary recursive function used by self.nest"""
+        """
+        Auxiliary recursive function used by self.nest
+
+        Parameters
+        ----------
+        flat : WRITEME
+        mapping : WRITEME
+
+        Returns
+        -------
+        WRITEME
+        """
         if mapping is None:
             # The corresponding space was a NullSpace,
             # and there is no corresponding value in flat,
@@ -141,7 +206,7 @@ class DataSpecsMapping(object):
         if isinstance(mapping, int):
             # We are at a leaf of the tree
             idx = mapping
-            if isinstance(flat, tuple):
+            if isinstance(flat, (tuple, list)):
                 assert 0 <= idx < len(flat)
                 return flat[idx]
             else:
@@ -153,7 +218,18 @@ class DataSpecsMapping(object):
                     for sub_mapping in mapping)
 
     def _make_nested_space(self, flat, mapping):
-        """Auxiliary recursive function used by self.nest"""
+        """
+        Auxiliary recursive function used by self.nest
+
+        Parameters
+        ----------
+        flat : WRITEME
+        mapping : WRITEME
+
+        Returns
+        -------
+        WRITEME
+        """
         if isinstance(mapping, int):
             # We are at a leaf of the tree
             idx = mapping
@@ -173,6 +249,15 @@ class DataSpecsMapping(object):
         Iterate through spec_mapping, building a nested tuple from "flat".
 
         The length of "flat" should be equal to self.n_unique_specs.
+
+        Parameters
+        ----------
+        flat : Space or tuple
+            WRITEME
+
+        Returns
+        -------
+        WRITEME
         """
         if isinstance(flat, Space):
             if isinstance(flat, CompositeSpace):
@@ -181,7 +266,7 @@ class DataSpecsMapping(object):
                 assert self.n_unique_specs == 1
             return self._make_nested_space(flat, self.spec_mapping)
         else:
-            if isinstance(flat, tuple):
+            if isinstance(flat, (list, tuple)):
                 assert len(flat) == self.n_unique_specs
             else:
                 # flat is not iterable, this is valid only if spec_mapping
@@ -191,7 +276,17 @@ class DataSpecsMapping(object):
 
 
 def is_flat_space(space):
-    """Returns True for elementary Spaces and non-nested CompositeSpaces"""
+    """
+    Returns True for elementary Spaces and non-nested CompositeSpaces
+
+    Parameters
+    ----------
+    space : WRITEME
+
+    Returns
+    -------
+    WRITEME
+    """
     if isinstance(space, CompositeSpace):
         for sub_space in space.components:
             if isinstance(sub_space, CompositeSpace):
@@ -203,16 +298,31 @@ def is_flat_space(space):
 
 
 def is_flat_source(source):
-    """Returns True for a string or a non-nested tuple of strings"""
-    if isinstance(source, tuple):
+    """
+    Returns True for a string or a non-nested tuple of strings
+
+    Parameters
+    ----------
+    source : WRITEME
+
+    Returns
+    -------
+    WRITEME
+    """
+    if isinstance(source, (tuple, list)):
         for sub_source in source:
-            if isinstance(sub_source, tuple):
+            if isinstance(sub_source, (tuple, list)):
                 return False
     elif not isinstance(source, str):
-        raise TypeError("source should be a string or a non-nested tuple "
+        raise TypeError("source should be a string or a non-nested tuple/list "
                 "of strings: %s" % source)
     return True
 
 
 def is_flat_specs(data_specs):
+    """
+    .. todo::
+
+        WRITEME
+    """
     return is_flat_space(data_specs[0]) and is_flat_source(data_specs[1])

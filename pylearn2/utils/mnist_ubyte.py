@@ -1,4 +1,6 @@
-"""Low-level utilities for reading in raw MNIST files."""
+"""
+Low-level utilities for reading in raw MNIST files.
+"""
 
 __author__ = "David Warde-Farley"
 __copyright__ = "Copyright 2012, Universite de Montreal"
@@ -10,12 +12,24 @@ __maintainer__ = "David Warde-Farley"
 
 import struct
 import numpy
+from theano.compat import six
 
 MNIST_IMAGE_MAGIC = 2051
 MNIST_LABEL_MAGIC = 2049
 
 
 class open_if_filename(object):
+    """
+    .. todo::
+
+        WRITEME
+
+    Parameters
+    ----------
+    f : WRITEME
+    mode : WRITEME
+    buffering : WRITEME
+    """
     def __init__(self, f, mode='r', buffering=-1):
         self._f = f
         self._mode = mode
@@ -23,13 +37,23 @@ class open_if_filename(object):
         self._handle = None
 
     def __enter__(self):
-        if isinstance(self._f, basestring):
+        """
+        .. todo::
+
+            WRITEME
+        """
+        if isinstance(self._f, six.string_types):
             self._handle = open(self._f, self._mode, self._buffering)
         else:
             self._handle = self._f
         return self._handle
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """
+        .. todo::
+
+            WRITEME
+        """
         if self._handle is not self._f:
             self._handle.close()
 
@@ -60,7 +84,7 @@ def read_mnist_images(fn, dtype=None):
     -----
     If the dtype provided was boolean, the resulting array will
     be boolean with `True` if the corresponding pixel had a value
-    greater than or equal to 128, `False otherwise.
+    greater than or equal to 128, `False` otherwise.
 
     If the dtype provided was a float or complex dtype, the values
     will be mapped to the unit interval [0, 1], with pixel values

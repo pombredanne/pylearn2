@@ -27,12 +27,19 @@ __maintainer__ = "David Warde-Farley"
 import logging
 import sys
 from logging import Handler, Formatter
+from theano.compat import six
+from theano.compat.six.moves import xrange
 
 
 class CustomFormatter(Formatter):
     """
     Conditionally displays log level names and source loggers, only if
     the log level is WARNING or greater.
+
+    Parameters
+    ----------
+    prefix : WRITEME
+    only_from : WRITEME
     """
     def __init__(self, prefix='', only_from=None):
         Formatter.__init__(self)
@@ -103,7 +110,7 @@ class CustomStreamHandler(Handler):
     get written to the provided `stdout`, all other messages to
     `stderr`.
 
-    Note that sys.stdout and sys.stderr
+    If stream is not specified, sys.stderr is used.
 
     Parameters
     ----------
@@ -114,22 +121,15 @@ class CustomStreamHandler(Handler):
         Stream to which WARNING, ERROR, CRITICAL messages will be
         written. If `None`, `sys.stderr` will be used.
     formatter : `logging.Formatter` object, optional
-        Assigned to `self.formatter`, used to format outgoing
-        log messages.
+        Assigned to `self.formatter`, used to format outgoing log messages.
 
     Notes
     -----
-    N.B. it is **not** recommended to pass `sys.stdout` or
-    `sys.stderr` as constructor arguments explicitly, as certain
-    things (like nosetests) can reassign these during code
-    execution! Instead, simply pass `None`.
+    N.B. it is **not** recommended to pass `sys.stdout` or `sys.stderr` as
+    constructor arguments explicitly, as certain things (like nosetests) can
+    reassign these during code execution! Instead, simply pass `None`.
     """
     def __init__(self, stdout=None, stderr=None, formatter=None):
-        """
-        Initialize the handler.
-
-        If stream is not specified, sys.stderr is used.
-        """
         Handler.__init__(self)
         self._stdout = stdout
         self._stderr = stderr
@@ -137,16 +137,24 @@ class CustomStreamHandler(Handler):
 
     @property
     def stdout(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return sys.stdout if self._stdout is None else self._stdout
 
     @property
     def stderr(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return sys.stderr if self._stderr is None else self._stderr
 
     def flush(self):
-        """
-        Flushes the stream.
-        """
+        """Flushes the stream."""
         for stream in (self.stdout, self.stderr):
             stream.flush()
 
@@ -160,6 +168,10 @@ class CustomStreamHandler(Handler):
         traceback.print_exception and appended to the stream.  If the stream
         has an 'encoding' attribute, it is used to determine how to do the
         output to the stream.
+
+        Parameters
+        ----------
+        record : WRITEME
         """
         try:
             msg = self.format(record)
@@ -167,7 +179,7 @@ class CustomStreamHandler(Handler):
                 stream = self.stderr
             else:
                 stream = self.stdout
-            fs = "%s\n"
+            fs = u"%s\n"
             #if no unicode support...
             #Python 2.6 don't have logging._unicode, so use the no unicode path
             # as stream.encoding also don't exist.
@@ -175,11 +187,10 @@ class CustomStreamHandler(Handler):
                 stream.write(fs % msg)
             else:
                 try:
-                    if (isinstance(msg, unicode) and
-                        getattr(stream, 'encoding', None)):
-                        ufs = fs.decode(stream.encoding)
+                    if (isinstance(msg, six.text_type) and
+                            getattr(stream, 'encoding', None)):
                         try:
-                            stream.write(ufs % msg)
+                            stream.write(fs % msg)
                         except UnicodeEncodeError:
                             # Printing to terminals sometimes fails. For
                             # example, with an encoding of 'cp1251', the above
@@ -188,11 +199,11 @@ class CustomStreamHandler(Handler):
                             # writing to a terminal even when the codepage is
                             # set to cp1251.  An extra encoding step seems to
                             # be needed.
-                            stream.write((ufs % msg).encode(stream.encoding))
+                            stream.write((fs % msg).encode(stream.encoding))
                     else:
                         stream.write(fs % msg)
-                except UnicodeError:
-                    stream.write(fs % msg.encode("UTF-8"))
+                except (UnicodeError, TypeError):
+                    stream.write((fs % msg).encode("UTF-8"))
             self.flush()
         except (KeyboardInterrupt, SystemExit):
             raise
@@ -207,7 +218,7 @@ def configure_custom(debug=False, stdout=None, stderr=None):
 
     Parameters
     ----------
-    debug : boolean
+    debug : bool
         If `True`, display DEBUG messages on `stdout` along with
         INFO-level messages.
     stdout : file-like object, optional
@@ -274,3 +285,26 @@ def restore_defaults():
     # Delete any handlers that might be installed on our logger.
     while top_level_logger.handlers:
         top_level_logger.handlers.pop()
+
+
+def newline(logger, nb_blank_lines=1):
+    """
+    A simple method to write a real new line to logging.
+    Only works with the INFO level at the moment.
+
+    Parameters
+    ----------
+    logger : Logger object
+        The logger where the blank line will be added.
+    nb_blank_lines : int, optional
+        Number of blank lines in a row.
+    """
+    formatter = logging.Formatter(fmt='')
+    handler = CustomStreamHandler(formatter=formatter)
+
+    logger.addHandler(handler)
+
+    for i in xrange(nb_blank_lines):
+        logger.info('')
+
+    logger.removeHandler(handler)

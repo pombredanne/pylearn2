@@ -3,8 +3,10 @@ __authors__ = "Ian Goodfellow"
 __copyright__ = "Copyright 2010-2012, Universite de Montreal"
 __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
-__maintainer__ = "Ian Goodfellow"
-__email__ = "goodfeli@iro"
+__maintainer__ = "LISA Lab"
+__email__ = "pylearn-dev@googlegroups"
+
+from functools import wraps
 
 from pylearn2.costs.cost import Cost
 from pylearn2.space import NullSpace
@@ -15,33 +17,31 @@ from pylearn2.utils.data_specs import DataSpecsMapping
 
 class CallbackCost(Cost):
     """
-    A Cost that runs callbacks on the data.
-    Returns the sum of the data multiplied by the
-    sum of all model parameters as the cost.
-    The callback is run via the CallbackOp
-    so the cost must be used to compute one
-    of the outputs of your theano graph if you
-    want the callback to get called.
-    The is cost is designed so that the SGD algorithm
-    will result in in the CallbackOp getting
-    evaluated.
-    """
+    A Cost that runs callbacks on the data.  Returns the sum of the data
+    multiplied by the sum of all model parameters as the cost.  The callback is
+    run via the CallbackOp so the cost must be used to compute one of the
+    outputs of your theano graph if you want the callback to get called.  The
+    is cost is designed so that the SGD algorithm will result in in the
+    CallbackOp getting evaluated.
 
+    Parameters
+    ----------
+    data_callback : optional, callbacks to run on data.
+        It is either a Python callable, or a tuple (possibly nested),
+        in the same format as data_specs.
+    data_specs : (space, source) pair specifying the format
+        and label associated to the data.
+    """
     def __init__(self, data_callbacks, data_specs):
-        """
-        data_callback: optional, callbacks to run on data.
-            It is either a Python callable, or a tuple (possibly nested),
-            in the same format as data_specs.
-        data_specs: (space, source) pair specifying the format
-            and label associated to the data.
-        """
         self.data_callbacks = data_callbacks
         self.data_specs = data_specs
         self._mapping = DataSpecsMapping(data_specs)
 
+    @wraps(Cost.get_data_specs)
     def get_data_specs(self, model):
         return self.data_specs
 
+    @wraps(Cost.expr)
     def expr(self, model, data):
         self.get_data_specs(model)[0].validate(data)
         callbacks = self.data_callbacks
@@ -71,10 +71,12 @@ class SumOfParams(Cost):
     on every parameter is 1.
     """
 
+    @wraps(Cost.expr)
     def expr(self, model, data):
         self.get_data_specs(model)[0].validate(data)
         return sum(param.sum() for param in model.get_params())
 
+    @wraps(Cost.get_data_specs)
     def get_data_specs(self, model):
         # This cost does not need any data
         return (NullSpace(), '')
@@ -82,14 +84,16 @@ class SumOfParams(Cost):
 
 class SumOfOneHalfParamsSquared(Cost):
     """
-    A cost that is just 0.5 * the sum of all parameters squared, so the gradient
-    on every parameter is the parameter itself.
+    A cost that is just 0.5 * the sum of all parameters squared, so the
+    gradient on every parameter is the parameter itself.
     """
 
+    @wraps(Cost.expr)
     def expr(self, model, data):
         self.get_data_specs(model)[0].validate(data)
         return 0.5 * sum((param**2).sum() for param in model.get_params())
 
+    @wraps(Cost.get_data_specs)
     def get_data_specs(self, model):
         # This cost does not need any data
         return (NullSpace(), '')

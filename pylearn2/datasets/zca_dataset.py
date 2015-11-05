@@ -10,21 +10,41 @@ __authors__ = "Ian Goodfellow"
 __copyright__ = "Copyright 2010-2012, Universite de Montreal"
 __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
-__maintainer__ = "Ian Goodfellow"
-__email__ = "goodfeli@iro"
-from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
+__maintainer__ = "LISA Lab"
+__email__ = "pylearn-dev@googlegroups"
+
+from functools import wraps
+import logging
+import warnings
 import numpy as np
+from theano.compat.six.moves import xrange
+from pylearn2.datasets.dense_design_matrix import DenseDesignMatrix
 from pylearn2.config import yaml_parse
 from pylearn2.datasets import control
+
 
 class ZCA_Dataset(DenseDesignMatrix):
     """
     A Dataset that was created by ZCA whitening a DenseDesignMatrix.
     Supports viewing the data both in the new ZCA whitened space and
     mapping examples back to the original space.
+
+    Parameters
+    ----------
+    preprocessed_dataset : Dataset
+        The underlying raw dataset
+    preprocessor : ZCA
+        The ZCA preprocessor.
+    start : int
+        Start reading examples from this index (inclusive)
+    stop : int
+        Stop reading examples at this index (exclusive)
     """
 
     def get_test_set(self):
+        """
+        Returns the test set.
+        """
         yaml = self.preprocessed_dataset.yaml_src
         yaml = yaml.replace('train', 'test')
         args = {}
@@ -36,13 +56,19 @@ class ZCA_Dataset(DenseDesignMatrix):
         return ZCA_Dataset(**args)
 
     def __init__(self,
-            preprocessed_dataset,
-            preprocessor,
-            convert_to_one_hot = True,
-            start = None,
-            stop = None,
-            axes = ['b', 0, 1, 'c']):
+                 preprocessed_dataset,
+                 preprocessor,
+                 start=None,
+                 stop=None,
+                 axes=None):
 
+        if axes is not None:
+            warnings.warn("The axes argument to ZCA_Dataset no longer has "
+                          "any effect. Its role is now carried out by the "
+                          "Space you pass to Dataset.iterator. You should "
+                          "remove 'axes' arguments from calls to "
+                          "ZCA_Dataset. This argument may be removed from "
+                          "the library after 2015-05-05.")
         self.args = locals()
 
         self.preprocessed_dataset = preprocessed_dataset
@@ -54,24 +80,20 @@ class ZCA_Dataset(DenseDesignMatrix):
         self.view_converter = preprocessed_dataset.view_converter
 
         self.y = preprocessed_dataset.y
-        if convert_to_one_hot:
-            if not ( self.y.min() == 0):
-                raise AssertionError("Expected y.min == 0 but y.min == "+str(self.y.min()))
-            nclass = self.y.max() + 1
-            y = np.zeros((self.y.shape[0], nclass), dtype='float32')
-            for i in xrange(self.y.shape[0]):
-                y[i,self.y[i]] = 1.
-            self.y = y
-            assert self.y is not None
-            space, source = self.data_specs
-            space.components[source.index('targets')].dim = nclass
+        self.y_labels = preprocessed_dataset.y_labels
 
+        # Defined up here because PEP8 requires excessive indenting if defined
+        # where it is used.
+        msg = ("Expected self.y to have dim 2, but it has %d. Maybe you are "
+               "loading from an outdated pickle file?")
         if control.get_load_data():
             if start is not None:
-                self.X = preprocessed_dataset.X[start:stop,:]
+                self.X = preprocessed_dataset.X[start:stop, :]
                 if self.y is not None:
-                    self.y = self.y[start:stop,:]
-                assert self.X.shape[0] == stop-start
+                    if self.y.ndim != 2:
+                        raise ValueError(msg % self.y.ndim)
+                    self.y = self.y[start:stop, :]
+                assert self.X.shape[0] == stop - start
             else:
                 self.X = preprocessed_dataset.X
         else:
@@ -80,42 +102,50 @@ class ZCA_Dataset(DenseDesignMatrix):
             if self.y is not None:
                 assert self.y.shape[0] == self.X.shape[0]
 
-
-        #self.mn = self.X.min()
-        #self.mx = self.X.max()
-        print 'inverting...'
-        preprocessor.invert()
-        print '...done inverting'
-
-        self.view_converter.set_axes(axes)
-
+    @wraps(DenseDesignMatrix.has_targets)
     def has_targets(self):
         return self.preprocessed_dataset.has_targets()
 
     def adjust_for_viewer(self, X):
+        """
+        Formats examples for use with PatchViewer
 
-        #rval = X - self.mn
-        #rval /= (self.mx-self.mn)
+        Parameters
+        ----------
+        X : 2d numpy array
+            One example per row
 
-        #rval *= 2.
-        #rval -= 1.
+        Returns
+        -------
+        output : 2d numpy array
+            One example per row, rescaled so the maximum absolute value
+            within each row is (almost) 1.
+        """
         rval = X.copy()
 
-        #rval = np.clip(rval,-1.,1.)
-
-
         for i in xrange(rval.shape[0]):
-            rval[i,:] /= np.abs(rval[i,:]).max() + 1e-12
+            rval[i, :] /= np.abs(rval[i, :]).max() + 1e-12
 
         return rval
 
-    def adjust_to_be_viewed_with(self, X, other, per_example = False):
+    def adjust_to_be_viewed_with(self, X, other, per_example=False):
+        """
+        Adjusts `X` using the same transformation that would
+        be applied to `other` if `other` were passed to
+        `adjust_for_viewer`. This is useful for visualizing `X`
+        alongside `other`.
 
-        #rval = X - self.mn
-        #rval /= (self.mx-self.mn)
-
-        #rval *= 2.
-        #rval -= 1.
+        Parameters
+        ----------
+        X : 2d ndarray
+            Examples to be adjusted
+        other : 2d ndarray
+            Examples that define the scale
+        per_example : bool
+            Default: False. If True, compute the scale separately
+            for each example. If False, compute one scale for the
+            whole batch.
+        """
 
         assert X.shape == other.shape, (X.shape, other.shape)
 
@@ -123,16 +153,29 @@ class ZCA_Dataset(DenseDesignMatrix):
 
         if per_example:
             for i in xrange(rval.shape[0]):
-                rval[i,:] /= np.abs(other[i,:]).max()
+                rval[i, :] /= np.abs(other[i, :]).max()
         else:
             rval /= np.abs(other).max()
 
-        rval = np.clip(rval,-1.,1.)
+        rval = np.clip(rval, -1., 1.)
 
         return rval
 
     def mapback_for_viewer(self, X):
+        """
+        Map `X` back to the original space (before ZCA preprocessing)
+        and adjust it for display with PatchViewer.
 
+        Parameters
+        ----------
+        X : 2d numpy array
+            The examples to be mapped back and adjusted
+
+        Returns
+        -------
+        output : 2d numpy array
+            The examples in the original space, adjusted for display
+        """
         assert X.ndim == 2
         rval = self.preprocessor.inverse(X)
         rval = self.preprocessed_dataset.adjust_for_viewer(rval)
@@ -140,5 +183,17 @@ class ZCA_Dataset(DenseDesignMatrix):
         return rval
 
     def mapback(self, X):
-        return self.preprocessor.inverse(X)
+        """
+        Map `X` back to the original space (before ZCA preprocessing)
 
+        Parameters
+        ----------
+        X : 2d numpy array
+            The examples to be mapped back
+
+        Returns
+        -------
+        output : 2d numpy array
+            The examples in the original space
+        """
+        return self.preprocessor.inverse(X)

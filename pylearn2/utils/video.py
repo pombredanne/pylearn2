@@ -2,13 +2,9 @@
 Utilities for working with videos, pulling out patches, etc.
 """
 import numpy
-import warnings
 
-try:
-    from pylearn2.utils._video import rgb_to_gray
-except ImportError:
-    warnings.warn("Import of Cython module failed, some functions unavailable")
-
+from pylearn2.compat import OrderedDict
+from pylearn2.utils.rng import make_np_rng
 
 __author__ = "David Warde-Farley"
 __copyright__ = "Copyright 2011, David Warde-Farley / Universite de Montreal"
@@ -31,7 +27,8 @@ def get_video_dims(fname):
     Returns
     -------
     shape : tuple
-        The spatiotemporal dimensions of the video, (length, height, width).
+        The spatiotemporal dimensions of the video
+        (length, height, width).
     """
     try:
         import pyffmpeg
@@ -58,9 +55,13 @@ class FrameLookup(object):
     collection of files into the frame index of a specific video file.
 
     Item-indexing on this object will yield a (filename, nframes, frame_no)
-    tuple, where nframes is the number of frames in the given file (mainly
-    for checking that we're far enough from the end so that we can
-    sample a big enough chunk).
+    tuple, where nframes is the number of frames in the given file
+    (mainly for checking that we're far enough from the end so that we
+    can sample a big enough chunk).
+
+    Parameters
+    ----------
+    names_ang_lengths : WRITEME
     """
     def __init__(self, names_and_lengths):
         self.files, self.lengths = zip(*names_and_lengths)
@@ -114,13 +115,12 @@ def spatiotemporal_cubes(file_tuples, shape, n_patches=numpy.inf, rng=None):
         along the second and columns along the third.
     """
     frame_lookup = FrameLookup([(a, b[0]) for a, b in file_tuples])
-    file_lookup = dict(file_tuples)
+    file_lookup = OrderedDict(file_tuples)
     patch_length, patch_height, patch_width = shape
     done = 0
-    if not hasattr(rng, 'random_integers'):
-        rng = numpy.random.RandomState(rng)
+    rng = make_np_rng(rng, which_method="random_integers")
     while done < n_patches:
-        frame = numpy.random.random_integers(0, len(frame_lookup) - 1)
+        frame = rng.random_integers(0, len(frame_lookup) - 1)
         filename, file_length, frame_no = frame_lookup[frame]
         # Check that there is a contiguous block of frames starting at
         # frame_no that is at least as long as our desired cube length.
@@ -131,8 +131,8 @@ def spatiotemporal_cubes(file_tuples, shape, n_patches=numpy.inf, rng=None):
         # fall within frame.
         last_row = video_height - patch_height
         last_col = video_width - patch_width
-        row = numpy.random.random_integers(0, last_row)
-        col = numpy.random.random_integers(0, last_col)
+        row = rng.random_integers(0, last_row)
+        col = rng.random_integers(0, last_col)
         patch_slice = (slice(frame_no, frame_no + patch_length),
                        slice(row, row + patch_height),
                        slice(col, col + patch_width))

@@ -1,56 +1,39 @@
+"""
+Functionality for detecting NaNs in a Theano graph.
+"""
 __authors__ = "Ian Goodfellow"
 __copyright__ = "Copyright 2010-2012, Universite de Montreal"
 __credits__ = ["Ian Goodfellow"]
 __license__ = "3-clause BSD"
-__maintainer__ = "Ian Goodfellow"
-__email__ = "goodfeli@iro"
+__maintainer__ = "LISA Lab"
+__email__ = "pylearn-dev@googlegroups"
 
-from theano.compile import Mode
-import theano
-import numpy as np
-from pylearn2.models.dbm import flatten
+import logging
+import theano.compile.nanguardmode
 
-class NanGuardMode(Mode):
-    def __init__(self, nan_is_error, inf_is_error):
+logger = logging.getLogger(__name__)
 
-        def do_check_on(var, nd, f, is_input):
-            error = False
-            if nan_is_error:
-                if np.any(np.isnan(var)):
-                    print 'NaN detected'
-                    error = True
-            if inf_is_error:
-                if np.any(np.isinf(var)):
-                    print 'Inf detected'
-                    error = True
-            if np.abs(var).max() > 1e10:
-                print 'Big value detected'
-                error = True
-            if error:
-                if is_input:
-                    print 'In an input'
-                else:
-                    print 'In an output'
-                print 'Inputs: '
-                for ivar, ival in zip(nd.inputs, f.inputs):
-                    print 'var'
-                    print ivar
-                    print theano.printing.min_informative_str(ivar)
-                    print 'val'
-                    print ival
-                print 'Node:'
-                print nd
-                assert False
 
-        def nan_check(i, node, fn):
-            inputs = fn.inputs
-            # TODO: figure out why individual inputs are themselves lists sometimes
-            for x in flatten(inputs):
-                do_check_on(x, node, fn, True)
-            fn()
-            outputs = fn.outputs
-            for j, x in enumerate(flatten(outputs)):
-                do_check_on(x, node, fn, False)
+class NanGuardMode(theano.compile.nanguardmode.NanGuardMode):
+    """
+    A Theano compilation Mode that makes the compiled function automatically
+    detect NaNs and Infs and detect an error if they occur. This mode is now in
+    theano, thus it is depreciated in pylearn2.
 
-        wrap_linker = theano.gof.WrapLinkerMany([theano.gof.OpWiseCLinker()], [nan_check])
-        super(NanGuardMode, self).__init__(wrap_linker, optimizer='fast_run')
+    Parameters
+    ----------
+    nan_is_error : bool
+        If True, raise an error anytime a NaN is encountered
+    inf_is_error: bool
+        If True, raise an error anytime an Inf is encountered.  Note that some
+        pylearn2 modules currently use np.inf as a default value (e.g.
+        mlp.max_pool) and these will cause an error if inf_is_error is True.
+    big_is_error: bool
+        If True, raise an error when a value greater than 1e10 is encountered.
+    """
+    def __init__(self, nan_is_error, inf_is_error, big_is_error=True):
+        super(NanGuardMode, self).__init__(
+            self, nan_is_error, inf_is_error, big_is_error=big_is_error
+        )
+        logger.warning("WARNING: NanGuardMode has been moved to theano. It is "
+                       "depreciated in pylearn2. Importing from theano. ")

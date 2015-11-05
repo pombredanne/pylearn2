@@ -12,8 +12,13 @@ website)
 
 """
 
-from jobman.tools import DD, flatten
-from jobman import api0, sql
+from nose.plugins.skip import SkipTest
+try:
+    from jobman.tools import DD, flatten
+    from jobman import api0, sql
+except ImportError:
+    raise SkipTest()
+
 
 from pylearn2.scripts.jobman import experiment
 
@@ -54,20 +59,17 @@ if __name__ == '__main__':
             "act_enc": "sigmoid", #for some reason only sigmoid function works
             "act_dec": "sigmoid",
         },
-        "algorithm": !obj:pylearn2.training_algorithms.sgd.ExhaustiveSGD {
+        "algorithm": !obj:pylearn2.training_algorithms.sgd.SGD {
             "learning_rate" : %(learning_rate)f,
             "batch_size" : %(batch_size)d,
             "monitoring_batches" : 5,
             "monitoring_dataset" : *dataset,
-            "cost" : [
-                !obj:pylearn2.costs.autoencoder.MeanSquaredReconstructionError {},
-                !obj:pylearn2.costs.autoencoder.ScaleBy {
-                    cost: !obj:pylearn2.costs.autoencoder.ModelMethodPenalty {
-                        method_name: contraction_penalty
-                    },
-                    coefficient: %(coefficient)f
-                }
-            ],
+            "cost" : !obj:pylearn2.costs.cost.SumOfCosts { 
+                "costs": [
+                    [1.0, !obj:pylearn2.costs.autoencoder.MeanBinaryCrossEntropy {} ],
+                    [%(coefficient)f, !obj:pylearn2.costs.cost.MethodCost { method: 'contraction_penalty' } ]
+                ]
+            },
             "termination_criterion" : %(term_crit)s,
         }
     }

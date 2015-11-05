@@ -1,18 +1,17 @@
+from __future__ import print_function
+
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import E_Step_Scan
 from pylearn2.models.s3c import Grad_M_Step
 from pylearn2.models.s3c import E_Step
+from pylearn2.utils import contains_nan
 from theano import function
 import numpy as np
+from theano.compat.six.moves import xrange
 import theano.tensor as T
 from theano import config
 #from pylearn2.utils import serial
-import warnings
 
-
-if config.floatX != 'float64':
-    config.floatX = 'float64'
-    warnings.warn("Changed config.floatX to float64. s3c inference tests currently fail due to numerical issues for float32")
 
 def broadcast(mat, shape_0):
     rval = mat
@@ -28,50 +27,66 @@ def broadcast(mat, shape_0):
 
 
 class Test_S3C_Inference:
+    def setUp(self):
+        # Temporarily change config.floatX to float64, as s3c inference
+        # tests currently fail due to numerical issues for float32.
+        self.prev_floatX = config.floatX
+        config.floatX = 'float64'
+
+    def tearDown(self):
+        # Restore previous value of floatX
+        config.floatX = self.prev_floatX
+
     def __init__(self):
         """ gets a small batch of data
             sets up an S3C model
         """
+        # We also have to change the value of config.floatX in __init__.
+        self.prev_floatX = config.floatX
+        config.floatX = 'float64'
 
-        self.tol = 1e-5
+        try:
+            self.tol = 1e-5
 
-        #dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl')
+            #dataset = serial.load('${PYLEARN2_DATA_PATH}/stl10/stl10_patches/data.pkl')
 
-        #X = dataset.get_batch_design(1000)
-        #X = X[:,0:5]
+            #X = dataset.get_batch_design(1000)
+            #X = X[:,0:5]
 
-        X = np.random.RandomState([1,2,3]).randn(1000,5)
+            X = np.random.RandomState([1,2,3]).randn(1000,5)
 
-        X -= X.mean()
-        X /= X.std()
-        m, D = X.shape
-        N = 5
+            X -= X.mean()
+            X /= X.std()
+            m, D = X.shape
+            N = 5
 
-        #don't give the model an e_step or learning rate so it won't spend years compiling a learn_func
-        self.model = S3C(nvis = D,
-                         nhid = N,
-                         irange = .1,
-                         init_bias_hid = 0.,
-                         init_B = 3.,
-                         min_B = 1e-8,
-                         max_B = 1000.,
-                         init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
-                         init_mu = 1., e_step = None,
-                         m_step = Grad_M_Step(),
-                         min_bias_hid = -1e30, max_bias_hid = 1e30,
-                        )
+            #don't give the model an e_step or learning rate so it won't spend years compiling a learn_func
+            self.model = S3C(nvis = D,
+                             nhid = N,
+                             irange = .1,
+                             init_bias_hid = 0.,
+                             init_B = 3.,
+                             min_B = 1e-8,
+                             max_B = 1000.,
+                             init_alpha = 1., min_alpha = 1e-8, max_alpha = 1000.,
+                             init_mu = 1., e_step = None,
+                             m_step = Grad_M_Step(),
+                             min_bias_hid = -1e30, max_bias_hid = 1e30,
+                            )
 
-        self.model.make_pseudoparams()
+            self.model.make_pseudoparams()
 
-        self.h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]
+            self.h_new_coeff_schedule = [.1, .2, .3, .4, .5, .6, .7, .8, .9, 1. ]
 
-        self.e_step = E_Step_Scan(h_new_coeff_schedule = self.h_new_coeff_schedule)
-        self.e_step.register_model(self.model)
+            self.e_step = E_Step_Scan(h_new_coeff_schedule = self.h_new_coeff_schedule)
+            self.e_step.register_model(self.model)
 
-        self.X = X
-        self.N = N
-        self.m = m
+            self.X = X
+            self.N = N
+            self.m = m
 
+        finally:
+            config.floatX = self.prev_floatX
 
     def test_match_unrolled(self):
         """ tests that inference with scan matches result using unrolled loops """
@@ -162,7 +177,7 @@ class Test_S3C_Inference:
 
             g = grad_func(H,Mu1,i)
 
-            assert not np.any(np.isnan(g))
+            assert not contains_nan(g)
 
             g_abs_max = np.abs(g).max()
 
@@ -304,7 +319,7 @@ class Test_S3C_Inference:
 
             g = grad_func(H,Mu1)[:,i]
 
-            assert not np.any(np.isnan(g))
+            assert not contains_nan(g)
 
             g_abs_max = np.abs(g).max()
 
@@ -316,7 +331,7 @@ class Test_S3C_Inference:
 
                 failed = True
 
-                print 'iteration ',i
+                print('iteration ',i)
                 #print 'max value of new H: ',H[:,i].max()
                 #print 'H for failing g: '
                 failing_h = H[np.abs(g) > self.tol, i]
@@ -333,11 +348,11 @@ class Test_S3C_Inference:
 
                 mask = high_mask * low_mask
 
-                print 'masked failures: ',mask.shape[0],' err ',g_abs_max
+                print('masked failures: ',mask.shape[0],' err ',g_abs_max)
 
                 if mask.sum() > 0:
-                    print 'failing h passing the range mask'
-                    print failing_h[ mask.astype(bool) ]
+                    print('failing h passing the range mask')
+                    print(failing_h[ mask.astype(bool) ])
                     raise Exception('after mean field step, gradient of kl divergence'
                             ' wrt freshly updated variational parameter should be 0, '
                             'but here the max magnitude of a gradient element is '
@@ -410,19 +425,19 @@ class Test_S3C_Inference:
             increase = new_kl - prev_kl
 
 
-            print 'failures after iteration ',i,': ',(increase > self.tol).sum()
+            print('failures after iteration ',i,': ',(increase > self.tol).sum())
 
             mx = increase.max()
 
             if mx > 1e-4:
-                print 'increase amounts of failing examples:'
-                print increase[increase > self.tol]
-                print 'failing H:'
-                print H[increase > self.tol,:]
-                print 'failing Mu1:'
-                print Mu1[increase > self.tol,:]
-                print 'failing V:'
-                print X[increase > self.tol,:]
+                print('increase amounts of failing examples:')
+                print(increase[increase > self.tol])
+                print('failing H:')
+                print(H[increase > self.tol,:])
+                print('failing Mu1:')
+                print(Mu1[increase > self.tol,:])
+                print('failing V:')
+                print(X[increase > self.tol,:])
 
 
                 raise Exception('after mean field step in h, kl divergence should decrease, but some elements increased by as much as '+str(mx)+' after updating h_'+str(i))

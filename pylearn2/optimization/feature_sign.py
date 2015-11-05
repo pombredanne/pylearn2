@@ -11,15 +11,24 @@ __email__ = "wardefar@iro"
 
 __all__ = ["feature_sign_search"]
 
-from itertools import izip, count
+from itertools import count
+
 import logging
 import numpy as np
+from theano.compat import six
+from theano.compat.six.moves import zip as izip
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
 
 def _feature_sign_checkargs(dictionary, signals, sparsity, max_iter,
                             solution):
+    """
+    .. todo::
+
+        WRITEME
+    """
     if solution is not None:
         assert solution.ndim == signals.ndim, (
             "if provided, solutions must be same number of dimensions as "
@@ -115,7 +124,7 @@ def _feature_sign_search_single(dictionary, signal, sparsity, max_iter,
     sds = np.dot(signal.T, signal)
     counter = count(0)
     while z_opt > sparsity or not nz_optimal:
-        if counter.next() == max_iter:
+        if six.next(counter) == max_iter:
             break
         if nz_optimal:
             candidate = np.argmax(np.abs(grad) * (signs == 0))
@@ -211,7 +220,7 @@ def _feature_sign_search_single(dictionary, signal, sparsity, max_iter,
         nz_opt = np.max(abs(grad[signs != 0] + sparsity * signs[signs != 0]))
         nz_optimal = np.allclose(nz_opt, 0)
 
-    return solution, min(counter.next(), max_iter)
+    return solution, min(six.next(counter), max_iter)
 
 
 def feature_sign_search(dictionary, signals, sparsity, max_iter=1000,
@@ -265,7 +274,7 @@ def feature_sign_search(dictionary, signals, sparsity, max_iter=1000,
     .. math::
         (Y - AX)^2 + \gamma \sum_{i,j} |X_{ij}|
 
-    with :math:`A$` representing the dictionary, :math:`Y` being
+    with :math:`$A$` representing the dictionary, :math:`Y` being
     `signals.T` and math:`X` being `solutions.T`. However, in order
     to maintain the convention of training examples being indexed
     along the first dimension in the case of 2-dimensional `signals`

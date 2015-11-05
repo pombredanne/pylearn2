@@ -1,17 +1,21 @@
-"""
-TrainExtensions for doing random spatial windowing and flipping of an
-image dataset on every epoch.
-"""
+""" TrainExtensions for doing random spatial windowing and flipping of an
+    image dataset on every epoch. TODO: fill out properly."""
+
 import warnings
 import numpy
 from . import TrainExtension
 from pylearn2.datasets.preprocessing import CentralWindow
+from pylearn2.utils.exc import reraise_as
+from pylearn2.utils.rng import make_np_rng
+from pylearn2.utils import py_integer_types
 
 try:
     from ..utils._window_flip import random_window_and_flip_c01b
+    from ..utils._window_flip import random_window_and_flip_b01c
 except ImportError:
-    raise ValueError("You should run setup.py build_ext --inplace in the "
-                     "utils directory.")
+    reraise_as(ImportError("Import of Cython module failed. Please make sure "
+                           "you have run 'python setup.py develop' in the "
+                           "pylearn2 directory"))
 
 __authors__ = "David Warde-Farley"
 __copyright__ = "Copyright 2010-2012, Universite de Montreal"
@@ -22,6 +26,25 @@ __email__ = "wardefar@iro"
 
 
 def _zero_pad(array, amount, axes=(1, 2)):
+    """
+    Returns a copy of <array> with zero-filled padding around the margins.
+
+    The new array has the same dimensions as the input array, except for
+    the dimensions given by <axes>, which are increased by 2*<amount>.
+
+    Parameters
+    ----------
+    array: numpy.ndarray
+      The array to zero-pad.
+
+    amount: int
+      The number of zeros to append to the beginning and end of each dimension
+      in <axes>. (That axis will grow by 2*<amount>).
+
+    axes: tuple
+      The dimensions to pad. These are indices, not axis names like the 0, 1
+      in ('b', 0, 1, 'c').
+    """
     if amount == 0:
         return array
     new_shape = []
@@ -40,49 +63,50 @@ def _zero_pad(array, amount, axes=(1, 2)):
     return new_array
 
 
-class WindowAndFlipC01B(TrainExtension):
-    # Immutable class-level attribute. This should not be a list, as then
-    # mutating self.axes will cause the class-level attribute to change.
-    # self.axes can be safely assigned to, however.
-    axes = ('c', 0, 1, 'b')
+class WindowAndFlip(TrainExtension):
+    """
+    An extension that allows an image dataset to be flipped and
+    windowed after each epoch of training.
 
-    def __init__(self, window_shape, randomize=None, randomize_once=None,
-            center=None, rng=(2013, 02, 20), pad_randomized=0, flip=True):
-        """
-        An extension that allows an image dataset to be flipped
-        and windowed after each epoch of training.
-
-        Parameters
-        ----------
-        randomize : list, optional
-            If specified, a list of Datasets to randomly window and
-            flip at each epoch.
-
-        randomize_once : list, optional
-            If specified, a list of Dataasets to randomly window and
-            flip once at the start of training.
-
-        center : list, optional
-            If specified, a list of Datasets to centrally window
-            once at the start of training.
-
-        rng : numpy.random.RandomState object or seed, optional
-            A random number generator or seed used to create one.
-            Seeded deterministically by default.
-
-        pad_randomized : int, optional
-            Amount of padding to add to each side of the images
-            in `randomize` and `randomize_once`. Useful if you
-            want to do zero-padded windowing with `window_shape`
-            the actual size of the dataset, and validate/test on
-            full-size images instead of central patches. Default
-            is 0.
-
-        flip : bool, optional
-            Reflect images on the horizontal axis with probability
-            0.5. `True` by default.
-        """
+    Parameters
+    ----------
+    window_shape : WRITEME
+    randomize : list, optional
+        If specified, a list of Datasets to randomly window and
+        flip at each epoch.
+    randomize_once : list, optional
+        If specified, a list of Datasets to randomly window and
+        flip once at the start of training.
+    center : list, optional
+        If specified, a list of Datasets to centrally window
+        once at the start of training.
+    rng : numpy.random.RandomState object or seed, optional
+        A random number generator or seed used to create one.
+        Seeded deterministically by default.
+    pad_randomized : int, optional
+        Amount of padding to add to each side of the images
+        in `randomize` and `randomize_once`. Useful if you
+        want to do zero-padded windowing with `window_shape`
+        the actual size of the dataset, and validate/test on
+        full-size images instead of central patches. Default
+        is 0.
+    flip : bool, optional
+        Reflect images on the horizontal axis with probability
+        0.5. `True` by default.
+    """
+    def __init__(self,
+                 window_shape,
+                 randomize=None,
+                 randomize_once=None,
+                 center=None,
+                 rng=(2013, 2, 20),
+                 pad_randomized=0,
+                 flip=True):
         self._window_shape = tuple(window_shape)
+
+        # Defined in setup(). A dict that maps Datasets in self._randomize and
+        # self._randomize_once to zero-padded versions of their topological
+        # views.
         self._original = None
 
         self._randomize = randomize if randomize else []
@@ -91,50 +115,86 @@ class WindowAndFlipC01B(TrainExtension):
         self._pad_randomized = pad_randomized
         self._flip = flip
 
+        assert isinstance(self._randomize, list), (
+            "The 'randomize' parameter of WindowAndFlip should be a list")
+        assert isinstance(self._randomize_once, list), (
+            "The 'randomize_once' parameter of WindowAndFlip should be a list")
+        assert isinstance(self._center, list), (
+            "The 'center' parameter of WindowAndFlip should be a list")
+        assert isinstance(self._pad_randomized, py_integer_types), (
+            "The 'pad_randomized' parameter of WindowAndFlip should be an int")
+
         if randomize is None and randomize_once is None and center is None:
             warnings.warn(self.__class__.__name__ + " instantiated without "
                           "any dataset arguments, and therefore does nothing",
                           stacklevel=2)
 
-        if not hasattr(rng, 'random_integers'):
-            self._rng = numpy.random.RandomState(rng)
-        else:
-            self._rng = rng
+        self._rng = make_np_rng(rng, which_method="random_integers")
 
     def setup(self, model, dataset, algorithm):
         """
-        Note: dataset argument is ignored.
+        .. todo::
+
+            WRITEME
+
+        Notes
+        -----
+        `dataset` argument is ignored
         """
         dataset = None
 
         # Central windowing of auxiliary datasets (e.g. validation sets)
         preprocessor = CentralWindow(self._window_shape)
         for data in self._center:
-            if not (tuple(data.view_converter.axes) == self.axes):
-                raise ValueError("Expected axes: %s Actual axes: %s" % (str(data.view_converter.axes), str(self.axes)))
             preprocessor.apply(data)
 
+        #
         # Do the initial random windowing
+        #
+
         randomize_now = self._randomize + self._randomize_once
-        self._original = dict((data,
-            _zero_pad(data.get_topological_view().astype('float32'),
-                self._pad_randomized)) for data in randomize_now)
+
+        # maps each dataset in randomize_now to a zero-padded topological view
+        # of its data.
+        self._original = dict((data, _zero_pad(
+                               data.get_topological_view().astype('float32'),
+                               self._pad_randomized))
+                              for data in randomize_now)
+
+        # For each dataset, for each image, extract a randomly positioned and
+        # potentially horizontal-flipped window
         self.randomize_datasets(randomize_now)
 
     def randomize_datasets(self, datasets):
         """
         Applies random translations and flips to the selected datasets.
+
+        Parameters
+        ----------
+        datasets : WRITEME
         """
         for dataset in datasets:
-            assert tuple(dataset.view_converter.axes) == self.axes
-            arr = random_window_and_flip_c01b(self._original[dataset],
-                                              self._window_shape,
-                                              rng=self._rng, flip=self._flip)
-            dataset.set_topological_view(arr, axes=self.axes)
+            if tuple(dataset.view_converter.axes) == ('c', 0, 1, 'b'):
+                wf_func = random_window_and_flip_c01b
+            elif tuple(dataset.view_converter.axes) == ('b', 0, 1, 'c'):
+                wf_func = random_window_and_flip_b01c
+            else:
+                raise ValueError("Axes of dataset is not supported: %s" %
+                                 (str(dataset.view_converter.axes)))
+            arr = wf_func(self._original[dataset],
+                          self._window_shape,
+                          rng=self._rng, flip=self._flip)
+            dataset.set_topological_view(arr, axes=dataset.view_converter.axes)
 
     def on_monitor(self, model, dataset, algorithm):
         """
-        Note: all arguments are ignored.
+        .. todo::
+
+            WRITEME
+
+        Notes
+        -----
+        All arguments are ignored.
         """
         model = None
         dataset = None

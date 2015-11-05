@@ -1,4 +1,5 @@
-import warnings
+from __future__ import print_function
+
 from theano.sandbox.linalg.ops import alloc_diag
 from pylearn2.models.s3c import S3C
 from pylearn2.models.s3c import SufficientStatistics
@@ -9,14 +10,17 @@ from theano import function
 import numpy as np
 import theano.tensor as T
 from theano import config
-from pylearn2.utils import serial
-
-if config.floatX != 'float64':
-    warnings.warn("Changing floatX to float64, unsure if these tests work for float32 yet")
-    config.floatX = 'float64'
-
 
 class TestS3C_Misc:
+    def setUp(self):
+        # Temporarily change config.floatX to float64, as s3c these
+        # tests currently fail with float32.
+        self.prev_floatX = config.floatX
+        config.floatX = 'float64'
+
+    def tearDown(self):
+        # Restore previous value of floatX
+        config.floatX = self.prev_floatX
 
     def __init__(self):
         """ gets a small batch of data
@@ -24,59 +28,56 @@ class TestS3C_Misc:
             creates an expression for the log likelihood of the data
         """
 
-        self.tol = 1e-5
+        # We also have to change the value of config.floatX in __init__.
+        self.prev_floatX = config.floatX
+        config.floatX = 'float64'
 
-        #dataset = serial.load('${GOODFELI_TMP}/cifar10_preprocessed_train_1K.pkl')
+        try:
+            self.tol = 1e-5
 
-        X = np.random.RandomState([1,2,3]).randn(1000,108)
-        #dataset.get_batch_design(1000)
-        #X = X[:,0:2]
-        #warnings.warn('hack')
-        #X[0,0] = 1.
-        #X[0,1] = -1.
-        m, D = X.shape
-        N = 300
+            if config.mode in ["DebugMode", "DEBUG_MODE"]:
+                X = np.random.RandomState([1, 2, 3]).randn(30, 108)
+                m, D = X.shape
+                N = 10
+            else:
+                X = np.random.RandomState([1, 2, 3]).randn(1000, 108)
+                m, D = X.shape
+                N = 300
 
-        self.model = S3C(nvis = D,
-                #disable_W_update = 1,
-                         nhid = N,
-                         irange = .5,
-                         init_bias_hid = -.1,
-                         init_B = 1.,
-                         min_B = 1e-8,
-                         max_B = 1e8,
-                         tied_B = 1,
-                         e_step = E_Step_Scan(
-                             #h_new_coeff_schedule = [ ],
-                             h_new_coeff_schedule = [ .01 ]
-                         ),
-                         init_alpha = 1.,
-                         min_alpha = 1e-8, max_alpha = 1e8,
-                         init_mu = 1.,
-                         m_step = Grad_M_Step( learning_rate = 1.0 ),
-                        )
+            self.model = S3C(nvis = D,
+                             nhid = N,
+                             irange = .5,
+                             init_bias_hid = -.1,
+                             init_B = 1.,
+                             min_B = 1e-8,
+                             max_B = 1e8,
+                             tied_B = 1,
+                             e_step = E_Step_Scan(
+                                 h_new_coeff_schedule = [ .01 ]
+                             ),
+                             init_alpha = 1.,
+                             min_alpha = 1e-8, max_alpha = 1e8,
+                             init_mu = 1.,
+                             m_step = Grad_M_Step( learning_rate = 1.0 ),
+                            )
 
-        #warnings.warn('hack')
-        #W = self.model.W.get_value()
-        #W[0,0] = 1.
-        #W[1,0] = 1.
-        #self.model.W.set_value(W)
+            self.orig_params = self.model.get_param_values()
 
-        self.orig_params = self.model.get_param_values()
+            model = self.model
+            self.mf_obs = model.e_step.infer(X)
 
-        model = self.model
-        self.mf_obs = model.e_step.infer(X)
+            self.stats = SufficientStatistics.from_observations(needed_stats =
+                    model.m_step.needed_stats(), V =X,
+                    ** self.mf_obs)
 
-        self.stats = SufficientStatistics.from_observations(needed_stats =
-                model.m_step.needed_stats(), V =X,
-                ** self.mf_obs)
+            self.prob = self.model.expected_log_prob_vhs( self.stats , H_hat = self.mf_obs['H_hat'], S_hat = self.mf_obs['S_hat'])
+            self.X = X
+            self.m = m
+            self.D = D
+            self.N = N
 
-        self.prob = self.model.expected_log_prob_vhs( self.stats , H_hat = self.mf_obs['H_hat'], S_hat = self.mf_obs['S_hat'])
-        self.X = X
-        self.m = m
-        self.D = D
-        self.N = N
-
+        finally:
+            config.floatX = self.prev_floatX
 
     def test_expected_log_prob_vhs_batch_match(self):
         """ verifies that expected_log_prob_vhs = mean(expected_log_prob_vhs_batch)
@@ -92,7 +93,7 @@ class TestS3C_Misc:
 
         res2 = res2.mean(dtype='float64')
 
-        print res1, res2
+        print(res1, res2)
 
         assert np.allclose(res1, res2)
 
@@ -133,10 +134,10 @@ class TestS3C_Misc:
         max_diff = np.abs(gv-av).max()
 
         if max_diff > self.tol:
-            print "gv"
-            print gv
-            print "av"
-            print av
+            print("gv")
+            print(gv)
+            print("av")
+            print(av)
             raise Exception("analytical gradient on alpha deviates from theano gradient on alpha by up to "+str(max_diff))
 
     def test_grad_W(self):
@@ -178,10 +179,10 @@ class TestS3C_Misc:
         max_diff = np.abs(gv-av).max()
 
         if max_diff > self.tol:
-            print "gv"
-            print gv
-            print "av"
-            print av
+            print("gv")
+            print(gv)
+            print("av")
+            print(av)
             raise Exception("analytical gradient on W deviates from theano gradient on W by up to "+str(max_diff))
 
 
@@ -251,10 +252,10 @@ class TestS3C_Misc:
         grad_analytical = function([H_var, S_var], analytical)(H,S)
 
         if not np.allclose(grad_theano, grad_analytical):
-            print 'grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max())
-            print 'grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max())
+            print('grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max()))
+            print('grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max()))
             ad = np.abs(grad_theano-grad_analytical)
-            print 'abs diff: ',(ad.min(),ad.mean(),ad.max())
+            print('abs diff: ',(ad.min(),ad.mean(),ad.max()))
             assert False
 
     def test_d_negent_d_h(self):
@@ -314,10 +315,10 @@ class TestS3C_Misc:
         grad_analytical = function([H_var, S_var], analytical, on_unused_input = 'ignore')(H,S)
 
         if not np.allclose(grad_theano, grad_analytical):
-            print 'grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max())
-            print 'grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max())
+            print('grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max()))
+            print('grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max()))
             ad = np.abs(grad_theano-grad_analytical)
-            print 'abs diff: ',(ad.min(),ad.mean(),ad.max())
+            print('abs diff: ',(ad.min(),ad.mean(),ad.max()))
             assert False
 
     def test_d_negent_h_d_h(self):
@@ -373,10 +374,10 @@ class TestS3C_Misc:
         grad_analytical = function([H_var, S_var], analytical, on_unused_input = 'ignore')(H,S)
 
         if not np.allclose(grad_theano, grad_analytical):
-            print 'grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max())
-            print 'grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max())
+            print('grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max()))
+            print('grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max()))
             ad = np.abs(grad_theano-grad_analytical)
-            print 'abs diff: ',(ad.min(),ad.mean(),ad.max())
+            print('abs diff: ',(ad.min(),ad.mean(),ad.max()))
             assert False
 
 
@@ -442,10 +443,10 @@ class TestS3C_Misc:
         grad_analytical = function([H_var, S_var], analytical, on_unused_input = 'ignore')(H,S)
 
         if not np.allclose(grad_theano, grad_analytical):
-            print 'grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max())
-            print 'grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max())
+            print('grad theano: ',(grad_theano.min(), grad_theano.mean(), grad_theano.max()))
+            print('grad analytical: ',(grad_analytical.min(), grad_analytical.mean(), grad_analytical.max()))
             ad = np.abs(grad_theano-grad_analytical)
-            print 'abs diff: ',(ad.min(),ad.mean(),ad.max())
+            print('abs diff: ',(ad.min(),ad.mean(),ad.max()))
             assert False
 
 if __name__ == '__main__':

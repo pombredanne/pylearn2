@@ -9,9 +9,8 @@ See :
 import theano
 import theano.tensor as TT
 from theano.ifelse import ifelse
-from theano.sandbox.scan import scan
+from theano import scan
 import numpy
-import time
 
 one = TT.constant(numpy.asarray(1, dtype=theano.config.floatX))
 zero = TT.constant(numpy.asarray(0, dtype=theano.config.floatX))
@@ -22,6 +21,11 @@ false = TT.constant(numpy.asarray(0, dtype='int8'))
 
 
 def lazy_or(name='none', *args):
+    """
+    .. todo::
+
+        WRITEME
+    """
     def apply_me(args):
         if len(args) == 1:
             return args[0]
@@ -33,6 +37,11 @@ def lazy_or(name='none', *args):
 
 
 def lazy_and(name='node', *args):
+    """
+    .. todo::
+
+        WRITEME
+    """
     def apply_me(args):
         if len(args) == 1:
             return args[0]
@@ -44,13 +53,28 @@ def lazy_and(name='node', *args):
 
 
 def my_not(arg):
+    """
+    .. todo::
+
+        WRITEME
+    """
     return TT.eq(arg, zero)
 
 def constant(value):
+    """
+    .. todo::
+
+        WRITEME
+    """
     return TT.constant(numpy.asarray(value, dtype=theano.config.floatX))
 
 def scalar_armijo_search(phi, phi0, derphi0, c1=constant(1e-4),
                          n_iters=10, profile=0):
+    """
+    .. todo::
+
+        WRITEME
+    """
     alpha0 = one
     phi_a0 = phi(alpha0)
     alpha1 = -(derphi0) * alpha0 ** 2 / 2.0 /\
@@ -85,27 +109,23 @@ def scalar_armijo_search(phi, phi0, derphi0, c1=constant(1e-4),
         return [alpha1, alpha2, phi_a1, phi_a2], \
                 theano.scan_module.until(end_condition)
 
-    states = []
-    states += [TT.unbroadcast(TT.shape_padleft(alpha0), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(alpha1), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_a0), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_a1), 0)]
+    states = [alpha0, alpha1, phi_a0, phi_a1]
     # print 'armijo'
     rvals, _ = scan(
                 armijo,
-                states=states,
+                outputs_info=states,
                 n_steps=n_iters,
                 name='armijo',
                 mode=theano.Mode(linker='cvm'),
                 profile=profile)
 
-    sol_scan = rvals[1][0]
+    sol_scan = rvals[1][-1]
     a_opt = ifelse(csol1, one,
                 ifelse(csol2, alpha1,
                     sol_scan))
     score = ifelse(csol1, phi_a0,
                    ifelse(csol2, phi_a1,
-                          rvals[2][0]))
+                          rvals[2][-1]))
     return a_opt, score
 
 
@@ -118,48 +138,48 @@ def scalar_search_wolfe2(phi,
                          c1=1e-4,
                          c2=0.9,
                         profile=False):
-    """Find alpha that satisfies strong Wolfe conditions.
+    """
+    Find alpha that satisfies strong Wolfe conditions.
 
     alpha > 0 is assumed to be a descent direction.
 
     Parameters
     ----------
-        phi : callable f(x)
-            Objective scalar function.
-
-        derphi : callable f'(x)
-            Objective function derivative (can be None)
-        phi0 : float, optional
-            Value of phi at s=0
-        old_phi0 : float, optional
-            Value of phi at previous point
-        derphi0 : float, optional
-            Value of derphi at s=0
-        c1 : float
-            Parameter for Armijo condition rule.
-        c2 : float
-            Parameter for curvature condition rule.
-        profile : flag (boolean)
-            True if you want printouts of profiling information
+    phi : callable f(x)
+        Objective scalar function.
+    derphi : callable f'(x)
+        Objective function derivative (can be None)
+    phi0 : float, optional
+        Value of phi at s=0
+    old_phi0 : float, optional
+        Value of phi at previous point
+    derphi0 : float, optional
+        Value of derphi at s=0
+    c1 : float
+        Parameter for Armijo condition rule.
+    c2 : float
+        Parameter for curvature condition rule.
+    profile : flag (boolean)
+        True if you want printouts of profiling information
 
     Returns
     -------
-        alpha_star : float
-            Best alpha
-        phi_star
-            phi at alpha_star
-        phi0
-            phi at 0
-        derphi_star
-            derphi at alpha_star
+    alpha_star : float
+        Best alpha
+    phi_star : WRITEME
+        phi at alpha_star
+    phi0 : WRITEME
+        phi at 0
+    derphi_star : WRITEME
+        derphi at alpha_star
 
     Notes
     -----
-        Uses the line search algorithm to enforce strong Wolfe
-        conditions.  See Wright and Nocedal, 'Numerical Optimization',
-        1999, pg. 59-60.
+    Uses the line search algorithm to enforce strong Wolfe
+    conditions.  See Wright and Nocedal, 'Numerical Optimization',
+    1999, pg. 59-60.
 
-        For the zoom phase it uses an algorithm by [...].
+    For the zoom phase it uses an algorithm by [...].
 
     """
 
@@ -255,31 +275,26 @@ def scalar_search_wolfe2(phi,
                             cond1,
                             cond2,
                             cond3)))
-    states = []
-    states += [TT.unbroadcast(TT.shape_padleft(alpha0), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(alpha1), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_a0), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_a1), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(derphi_a0), 0)]
+    states = [alpha0, alpha1, phi_a0, phi_a1, derphi_a0]
     # i_t
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
+    states.append(zero)
     # alpha_star
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
+    states.append(zero)
     # phi_star
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
+    states.append(zero)
     # derphi_star
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
+    states.append(zero)
     # print 'while_search'
     outs, updates = scan(while_search,
-                         states=states,
+                         outputs_info=states,
                          n_steps=maxiter,
                          name='while_search',
                          mode=theano.Mode(linker='cvm_nogc'),
                          profile=profile)
     # print 'done_while_search'
-    out3 = outs[-3][0]
-    out2 = outs[-2][0]
-    out1 = outs[-1][0]
+    out3 = outs[-3][-1]
+    out2 = outs[-2][-1]
+    out1 = outs[-1][-1]
     alpha_star, phi_star, derphi_star = \
             ifelse(TT.eq(alpha1, zero),
                         (nan, phi0, nan),
@@ -294,6 +309,19 @@ def _cubicmin(a, fa, fpa, b, fb, c, fc):
 
     If no minimizer can be found return None
 
+    Parameters
+    ----------
+    a : WRITEME
+    fa : WRITEME
+    fpa : WRITEME
+    b : WRITEME
+    fb : WRITEME
+    c : WRITEME
+    fc : WRITEME
+
+    Returns
+    -------
+    WRITEME
     """
     # f(x) = A *(x-a)^3 + B*(x-a)^2 + C*(x-a) + D
     a.name = 'a'
@@ -346,8 +374,19 @@ def _cubicmin(a, fa, fpa, b, fb, c, fc):
 def _quadmin(a, fa, fpa, b, fb):
     """
     Finds the minimizer for a quadratic polynomial that goes through
-    the points (a,fa), (b,fb) with derivative at a of fpa,
+    the points (a,fa), (b,fb) with derivative at a of fpa.
 
+    Parameters
+    ----------
+    a : WRITEME
+    fa : WRITEME
+    fpa : WRITEME
+    b : WRITEME
+    fb : WRITEME
+
+    Returns
+    -------
+    WRITEME
     """
     # f(x) = B*(x-a)^2 + C*(x-a) + D
     D = fa
@@ -371,21 +410,36 @@ def _zoom(a_lo, a_hi, phi_lo, phi_hi, derphi_lo,
           n_iters=10,
           profile=False):
     """
-    TODO: re-write me
+    WRITEME
 
     Part of the optimization algorithm in `scalar_search_wolfe2`.
-    a_lo : scalar (step size)
-    a_hi : scalar (step size)
-    phi_lo : scalar (value of f at a_lo)
-    phi_hi : scalar ( value of f at a_hi)
-    derphi_lo : scalar ( value of derivative at a_lo)
-    phi : callable -> generates computational graph
-    derphi: callable -> generates computational graph
-    phi0 : scalar ( value of f at 0)
-    derphi0 : scalar (value of the derivative at 0)
-    c1 : scalar  (wolfe parameter)
-    c2 : scalar  (wolfe parameter)
-    profile: if you want printouts of profiling information
+
+    Parameters
+    ----------
+    a_lo : float
+        Step size
+    a_hi : float
+        Step size
+    phi_lo : float
+        Value of f at a_lo
+    phi_hi : float
+        Value of f at a_hi
+    derphi_lo : float
+        Value of derivative at a_lo
+    phi : callable
+        Generates computational graph
+    derphi : callable
+        Generates computational graph
+    phi0 : float
+        Value of f at 0
+    derphi0 : float
+        Value of the derivative at 0
+    c1 : float
+        Wolfe parameter
+    c2 : float
+        Wolfe parameter
+    profile : bool
+        True if you want printouts of profiling information
     """
     # Function reprensenting the computations of one step of the while loop
     def while_zoom(phi_rec, a_rec, a_lo, a_hi, phi_hi,
@@ -566,28 +620,19 @@ def _zoom(a_lo, a_hi, phi_lo, phi_hi, derphi_lo,
     derphi_lo.name = 'derphi_lo'
     vderphi_aj = ifelse(cond1, nan, TT.switch(cond2, derphi_aj, nan),
                         name='vderphi_aj')
-    states = []
-    states += [TT.unbroadcast(TT.shape_padleft(phi_rec), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(a_rec), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(a_lo), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(a_hi), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_hi), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(phi_lo), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(derphi_lo), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
-    states += [TT.unbroadcast(TT.shape_padleft(zero), 0)]
+    states = [phi_rec, a_rec, a_lo, a_hi, phi_hi, phi_lo, derphi_lo, zero, zero, zero]
+
     # print'while_zoom'
     outs, updates = scan(while_zoom,
-                         states=states,
+                         outputs_info=states,
                          n_steps=maxiter,
                          name='while_zoom',
                          mode=theano.Mode(linker='cvm_nogc'),
                          profile=profile)
     # print 'done_while'
-    a_star = ifelse(onlyif, a_j, outs[7][0], name='astar')
-    val_star = ifelse(onlyif, phi_aj, outs[8][0], name='valstar')
-    valprime = ifelse(onlyif, vderphi_aj, outs[9][0], name='valprime')
+    a_star = ifelse(onlyif, a_j, outs[7][-1], name='astar')
+    val_star = ifelse(onlyif, phi_aj, outs[8][-1], name='valstar')
+    valprime = ifelse(onlyif, vderphi_aj, outs[9][-1], name='valprime')
 
     ## WARNING !! I ignore updates given by scan which I should not do !!!
     return a_star, val_star, valprime

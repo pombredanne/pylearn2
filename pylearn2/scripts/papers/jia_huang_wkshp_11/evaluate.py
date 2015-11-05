@@ -1,15 +1,17 @@
+from __future__ import print_function
+
 from optparse import OptionParser
 import warnings
 try:
-    from scikits.learn.metrics import classification_report
+    from sklearn.metrics import classification_report
 except ImportError:
     classification_report = None
-    warnings.warn("couldn't find scikits.learn.metrics.classification_report")
+    warnings.warn("couldn't find sklearn.metrics.classification_report")
 try:
-    from scikits.learn.metrics import confusion_matrix
+    from sklearn.metrics import confusion_matrix
 except ImportError:
     confusion_matrix = None
-    warnings.warn("couldn't find scikts.learn.metrics.confusion_matrix")
+    warnings.warn("couldn't find sklearn.metrics.metrics.confusion_matrix")
 from galatea.s3c.feature_loading import get_features
 from pylearn2.utils import serial
 from pylearn2.datasets.cifar10 import CIFAR10
@@ -17,25 +19,25 @@ from pylearn2.datasets.cifar100 import CIFAR100
 import numpy as np
 
 def test(model, X, y):
-    print "Evaluating svm"
+    print("Evaluating svm")
     y_pred = model.predict(X)
     #try:
     if True:
         acc = (y == y_pred).mean()
-        print "Accuracy ",acc
+        print("Accuracy ",acc)
     """except:
-        print "something went wrong"
-        print 'y:'
-        print y
-        print 'y_pred:'
-        print y_pred
-        print 'extra info'
-        print type(y)
-        print type(y_pred)
-        print y.dtype
-        print y_pred.dtype
-        print y.shape
-        print y_pred.shape
+        print("something went wrong")
+        print('y:')
+        print(y)
+        print('y_pred:')
+        print(y_pred)
+        print('extra info')
+        print(type(y))
+        print(type(y_pred))
+        print(y.dtype)
+        print(y_pred.dtype)
+        print(y.shape)
+        print(y_pred.shape)
         raise
 """
 #
@@ -45,15 +47,15 @@ def get_test_labels(cifar10, cifar100, stl10):
     assert cifar10 + cifar100 +  stl10 == 1
 
     if stl10:
-        print 'loading entire stl-10 test set just to get the labels'
+        print('loading entire stl-10 test set just to get the labels')
         stl10 = serial.load("${PYLEARN2_DATA_PATH}/stl10/stl10_32x32/test.pkl")
         return stl10.y
     if cifar10:
-        print 'loading entire cifar10 test set just to get the labels'
+        print('loading entire cifar10 test set just to get the labels')
         cifar10 = CIFAR10(which_set = 'test')
         return np.asarray(cifar10.y)
     if cifar100:
-        print 'loading entire cifar100 test set just to get the fine labels'
+        print('loading entire cifar100 test set just to get the fine labels')
         cifar100 = CIFAR100(which_set = 'test')
         return np.asarray(cifar100.y_fine)
     assert False

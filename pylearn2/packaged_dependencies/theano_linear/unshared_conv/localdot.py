@@ -1,19 +1,26 @@
 """
-XXX
+WRITEME
 """
 
+import logging
 from ..linear import LinearTransform
-from unshared_conv import FilterActs, ImgActs
+from .unshared_conv import FilterActs, ImgActs
+from theano.compat.six.moves import xrange
 from theano.sandbox import cuda
 if cuda.cuda_available:
     import gpu_unshared_conv # register optimizations
 
 import numpy as np
+import warnings
 
 try:
     import matplotlib.pyplot as plt
-except ImportError:
-    pass
+except (RuntimeError, ImportError, TypeError) as matplotlib_exception:
+    warnings.warn("Unable to import matplotlib. Some features unavailable. "
+                  "Original exception: " + str(matplotlib_exception))
+
+logger = logging.getLogger(__name__)
+
 
 class LocalDot(LinearTransform):
     """
@@ -49,6 +56,17 @@ class LocalDot(LinearTransform):
         col_positions
         images
 
+    Parameters
+    ----------
+    filters : WRITEME
+    irows : WRITEME
+        Image rows
+    icols : WRITEME
+        Image columns
+    subsample : WRITEME
+    padding_start : WRITEME
+    filters_shape : WRITEME
+    message : WRITEME
     """
 
     def __init__(self, filters, irows, icols=None,
@@ -56,11 +74,6 @@ class LocalDot(LinearTransform):
             padding_start=None,
             filters_shape=None,
             message=""):
-        """
-
-        irows: image rows
-
-        """
         LinearTransform.__init__(self, [filters])
         self._filters = filters
         if filters_shape is None:
@@ -91,13 +104,28 @@ class LocalDot(LinearTransform):
             self._message = filters.name
 
     def rmul(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         assert x.ndim == 5
         return self._filter_acts(x, self._filters)
 
     def rmul_T(self, x):
+        """
+        .. todo::
+
+            WRITEME
+        """
         return self._img_acts(self._filters, x, self._irows, self._icols)
 
     def col_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         ishape = self.row_shape() + (-99,)
         fshape = self._filters_shape
         hshape, = self._filter_acts.infer_shape(None, (ishape, fshape))
@@ -105,6 +133,11 @@ class LocalDot(LinearTransform):
         return hshape[:-1]
 
     def row_shape(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         fshape = self._filters_shape
         fmodulesR, fmodulesC, fcolors, frows, fcols = fshape[:-2]
         fgroups, filters_per_group = fshape[-2:]
@@ -113,6 +146,11 @@ class LocalDot(LinearTransform):
 
 
     def print_status(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         raise NotImplementedError("TODO: fix dependence on non-existent "
                 "ndarray_status function")
         """print ndarray_status(
@@ -122,9 +160,14 @@ class LocalDot(LinearTransform):
         """
 
     def imshow_gray(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         filters = self._filters.get_value()
         modR, modC, colors, rows, cols, grps, fs_per_grp = filters.shape
-        print filters.shape
+        logger.info(filters.shape)
 
         rval = np.zeros((
             modR * (rows + 1) - 1,
@@ -137,4 +180,3 @@ class LocalDot(LinearTransform):
 
         plt.imshow(rval, cmap='gray')
         return rval
-

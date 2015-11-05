@@ -11,14 +11,14 @@ __all__ = ["compiled_theano_function", "HasCompiledFunctions"]
 
 def compiled_theano_function(fn):
     """
-    Method decorator that enables lazy on-demand compilation of
-    Theano functions.
+    Method decorator that enables lazy on-demand compilation of Theano
+    functions.
 
     Parameters
     ----------
     fn : bound method
-        Method that takes exactly one parameter (i.e. `self`). This
-        method should return a compiled Theano function when called.
+        Method that takes exactly one parameter (i.e. `self`). This method
+        should return a compiled Theano function when called.
 
     Notes
     -----
@@ -58,11 +58,11 @@ def compiled_theano_function(fn):
     @functools.wraps(fn)
     def wrapped(self):
         try:
-            func = self._compiled_functions[fn.func_name]
+            func = self._compiled_functions[fn.__name__]
         except (AttributeError, KeyError):
             if not hasattr(self, '_compiled_functions'):
                 self._compiled_functions = {}
-            self._compiled_functions[fn.func_name] = func = fn(self)
+            self._compiled_functions[fn.__name__] = func = fn(self)
         return func
     return property(wrapped)
 
@@ -73,6 +73,11 @@ class HasCompiledFunctions(object):
     attribute when pickling.
     """
     def __getstate__(self):
+        """
+        .. todo::
+
+            WRITEME
+        """
         state = self.__dict__.copy()
         if '_compiled_functions' in state:
             del state['_compiled_functions']
